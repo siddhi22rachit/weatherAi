@@ -64,70 +64,73 @@ export const sendMessageToWeatherAgent = async (message) => {
     // Debug: Log the raw response to understand the format
     console.log('Raw API Response:', responseText);
     
-    // The API returns streaming data, so we need to parse the response
+    // The API returns streaming data with prefixed lines (f:, 9:, a:, e:, 0:, d:)
     const lines = responseText.trim().split('\n');
-    let lastValidData = null;
-    let allMessages = [];
+    let messageTokens = [];
+    let toolResults = [];
 
-    // Process each line to find valid JSON responses
+    // Process each line to extract content
     for (const line of lines) {
       if (line.trim()) {
         try {
-          // Try to parse each line as JSON
-          const parsed = JSON.parse(line);
-          console.log('Parsed line:', parsed);
-          
-          // Check for different possible response formats
-          if (parsed && parsed.messages) {
-            lastValidData = parsed;
-            // Collect all messages from this response
-            allMessages = [...allMessages, ...parsed.messages];
-          } else if (parsed && parsed.content) {
-            // Handle single message format
-            allMessages.push(parsed);
-          } else if (parsed && parsed.data && parsed.data.messages) {
-            // Handle nested data format
-            lastValidData = parsed.data;
-            allMessages = [...allMessages, ...parsed.data.messages];
+          // Check if line has a prefix (like "0:", "f:", etc.)
+          const colonIndex = line.indexOf(':');
+          if (colonIndex > 0) {
+            const prefix = line.substring(0, colonIndex);
+            const content = line.substring(colonIndex + 1);
+            
+            console.log(`Processing line with prefix "${prefix}":`, content);
+            
+            if (prefix === '0') {
+              // These are message content tokens - collect them
+              messageTokens.push(content.replace(/^"(.*)"$/, '$1')); // Remove quotes if present
+            } else if (prefix === 'a') {
+              // Tool result - might contain weather data
+              try {
+                const toolData = JSON.parse(content);
+                if (toolData.result) {
+                  toolResults.push(toolData.result);
+                }
+              } catch (e) {
+                console.log('Failed to parse tool result:', content);
+              }
+            } else if (prefix === 'f' || prefix === '9' || prefix === 'e' || prefix === 'd') {
+              // Metadata lines - parse as JSON for debugging
+              try {
+                const metadata = JSON.parse(content);
+                console.log(`Metadata (${prefix}):`, metadata);
+              } catch (e) {
+                console.log(`Failed to parse metadata (${prefix}):`, content);
+              }
+            }
           }
         } catch (e) {
-          // Skip invalid JSON lines (common in streaming responses)
-          console.log('Failed to parse line:', line, 'Error:', e.message);
+          console.log('Failed to process line:', line, 'Error:', e.message);
           continue;
         }
       }
     }
 
-    console.log('All collected messages:', allMessages);
-    console.log('Last valid data:', lastValidData);
+    console.log('Collected message tokens:', messageTokens);
+    console.log('Tool results:', toolResults);
 
-    // Extract the agent's reply from collected messages
-    if (allMessages.length > 0) {
-      // Find the last assistant/agent message
-      const agentMessages = allMessages.filter(msg => 
-        msg.role === 'assistant' || 
-        msg.role === 'agent' || 
-        msg.type === 'agent' ||
-        (!msg.role && !msg.type) // fallback for messages without explicit role
-      );
-      
-      if (agentMessages.length > 0) {
-        const lastMessage = agentMessages[agentMessages.length - 1];
-        return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
-      } else {
-        // If no specific agent messages, use the last message
-        const lastMessage = allMessages[allMessages.length - 1];
-        return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
+    // Reconstruct the message from tokens
+    if (messageTokens.length > 0) {
+      const fullMessage = messageTokens.join('');
+      console.log('Reconstructed message:', fullMessage);
+      return fullMessage;
+    } else if (toolResults.length > 0) {
+      // If we have tool results but no message tokens, format the weather data
+      const result = toolResults[toolResults.length - 1];
+      if (result.temperature !== undefined) {
+        return `The current weather in ${result.location || 'the requested location'} is ${result.conditions || 'unknown conditions'} with a temperature of ${result.temperature}°C (feels like ${result.feelsLike}°C). Humidity is ${result.humidity}% and wind speed is ${result.windSpeed} km/h.`;
       }
-    } else if (lastValidData && lastValidData.messages && lastValidData.messages.length > 0) {
-      // Fallback to original logic
-      const lastMessage = lastValidData.messages[lastValidData.messages.length - 1];
-      return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
-    } else {
-      // If we still can't find a valid response, return the raw response for debugging
-      console.error('No valid messages found. Raw response:', responseText);
-      throw new Error(`No valid response received from the API. Raw response: ${responseText.substring(0, 200)}...`);
     }
+
+    // If we still can't find a valid response, return error with debug info
+    console.error('No valid messages found. Raw response:', responseText);
+    throw new Error(`No valid response received from the API. Found ${messageTokens.length} tokens and ${toolResults.length} tool results.`);
+    
 
   } catch (error) {
     // Log the error for debugging
