@@ -83,7 +83,9 @@ export const sendMessageToWeatherAgent = async (message) => {
             
             if (prefix === '0') {
               // These are message content tokens - collect them
-              messageTokens.push(content.replace(/^"(.*)"$/, '$1')); // Remove quotes if present
+              const cleanContent = content.replace(/^"(.*)"$/, '$1'); // Remove quotes if present
+              console.log(`Adding token: "${cleanContent}"`);
+              messageTokens.push(cleanContent);
             } else if (prefix === 'a') {
               // Tool result - might contain weather data
               try {
