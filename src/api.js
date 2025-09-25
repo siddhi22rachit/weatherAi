@@ -58,16 +58,36 @@ export const sendMessageToWeatherAgent = async (message) => {
       throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
     }
 
-    // Parse the response
-    const data = await response.json();
+    // Handle streaming response
+    const responseText = await response.text();
+    
+    // The API returns streaming data, so we need to parse the last complete JSON object
+    const lines = responseText.trim().split('\n');
+    let lastValidData = null;
 
-    // Extract the agent's reply from the response
-    if (data && data.messages && data.messages.length > 0) {
+    // Process each line to find valid JSON responses
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          // Try to parse each line as JSON
+          const parsed = JSON.parse(line);
+          if (parsed && parsed.messages) {
+            lastValidData = parsed;
+          }
+        } catch (e) {
+          // Skip invalid JSON lines (common in streaming responses)
+          continue;
+        }
+      }
+    }
+
+    // Extract the agent's reply from the last valid response
+    if (lastValidData && lastValidData.messages && lastValidData.messages.length > 0) {
       // Get the last message from the agent
-      const lastMessage = data.messages[data.messages.length - 1];
+      const lastMessage = lastValidData.messages[lastValidData.messages.length - 1];
       return lastMessage.content || "I'm sorry, I couldn't process your request.";
     } else {
-      throw new Error('Invalid response format from the API');
+      throw new Error('No valid response received from the API');
     }
 
   } catch (error) {
@@ -84,4 +104,3 @@ export const sendMessageToWeatherAgent = async (message) => {
     }
   }
 };
-
