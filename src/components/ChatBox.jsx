@@ -95,61 +95,46 @@ const ChatBox = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* Chat Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-green-500 text-white p-4 text-center">
-        <h2 className="text-lg font-semibold">🌤️ Weather Chat Agent</h2>
-        <p className="text-sm opacity-90">Ask me anything about the weather!</p>
-      </div>
-
+    <div className="flex flex-col h-full max-w-2xl mx-auto bg-white">
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-container min-h-0">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            <div className="text-4xl mb-2">☀️</div>
-            <p className="text-lg font-medium">Welcome to Weather Chat!</p>
-            <p className="text-sm">Ask me about weather conditions, forecasts, or climate information.</p>
+          <div className="text-center text-gray-600 mt-16">
+            <p className="text-lg">Ask me about the weather in any city</p>
           </div>
         )}
 
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex animate-slide-up ${
-              message.type === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            <div
-              className={`chat-bubble p-3 shadow-md ${
-                message.type === 'user'
-                  ? 'user-bubble'
-                  : message.type === 'error'
-                  ? 'error-bubble'
-                  : 'agent-bubble'
-              }`}
-            >
-              <p className="text-sm leading-relaxed">{message.content}</p>
-              <div className="text-xs opacity-75 mt-1">
-                {message.timestamp.toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
+          <div key={message.id} className="animate-fade-in">
+            {message.type === 'user' ? (
+              <div className="flex justify-end mb-4">
+                <div className="bg-gray-100 text-gray-800 px-4 py-3 rounded-lg max-w-md">
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mb-4">
+                <div className={`text-gray-800 leading-relaxed ${
+                  message.type === 'error' ? 'text-red-600' : ''
+                }`}>
+                  <p className="text-sm">{message.content}</p>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
         {/* Loading indicator */}
         {isLoading && (
-          <div className="flex justify-start animate-fade-in">
-            <div className="chat-bubble p-3 shadow-md typing-indicator">
+          <div className="animate-fade-in">
+            <div className="text-gray-600">
               <div className="flex items-center space-x-2">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                 </div>
-                <span className="text-sm">Agent is typing...</span>
+                <span className="text-sm">Thinking...</span>
               </div>
             </div>
           </div>
@@ -160,40 +145,34 @@ const ChatBox = () => {
       </div>
 
       {/* Input Form */}
-      <div className="border-t bg-gray-50 p-4">
-        <form onSubmit={handleSubmit} className="flex space-x-2">
+      <div className="p-6 border-t border-gray-200">
+        <form onSubmit={handleSubmit} className="flex space-x-3">
           <input
             ref={inputRef}
             type="text"
             value={inputMessage}
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about weather conditions, forecasts, or climate..."
+            placeholder="Ask about weather..."
             disabled={isLoading}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed text-sm"
             maxLength={500}
           />
           <button
             type="submit"
             disabled={isLoading || !inputMessage.trim()}
-            className="px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium"
+            className="px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 text-sm"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              '📤'
+              '→'
             )}
           </button>
         </form>
-        
-        {/* Character count */}
-        <div className="text-xs text-gray-500 mt-1 text-right">
-          {inputMessage.length}/500
-        </div>
       </div>
     </div>
   );
 };
 
 export default ChatBox;
-
