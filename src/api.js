@@ -61,9 +61,13 @@ export const sendMessageToWeatherAgent = async (message) => {
     // Handle streaming response
     const responseText = await response.text();
     
-    // The API returns streaming data, so we need to parse the last complete JSON object
+    // Debug: Log the raw response to understand the format
+    console.log('Raw API Response:', responseText);
+    
+    // The API returns streaming data, so we need to parse the response
     const lines = responseText.trim().split('\n');
     let lastValidData = null;
+    let allMessages = [];
 
     // Process each line to find valid JSON responses
     for (const line of lines) {
@@ -71,23 +75,58 @@ export const sendMessageToWeatherAgent = async (message) => {
         try {
           // Try to parse each line as JSON
           const parsed = JSON.parse(line);
+          console.log('Parsed line:', parsed);
+          
+          // Check for different possible response formats
           if (parsed && parsed.messages) {
             lastValidData = parsed;
+            // Collect all messages from this response
+            allMessages = [...allMessages, ...parsed.messages];
+          } else if (parsed && parsed.content) {
+            // Handle single message format
+            allMessages.push(parsed);
+          } else if (parsed && parsed.data && parsed.data.messages) {
+            // Handle nested data format
+            lastValidData = parsed.data;
+            allMessages = [...allMessages, ...parsed.data.messages];
           }
         } catch (e) {
           // Skip invalid JSON lines (common in streaming responses)
+          console.log('Failed to parse line:', line, 'Error:', e.message);
           continue;
         }
       }
     }
 
-    // Extract the agent's reply from the last valid response
-    if (lastValidData && lastValidData.messages && lastValidData.messages.length > 0) {
-      // Get the last message from the agent
+    console.log('All collected messages:', allMessages);
+    console.log('Last valid data:', lastValidData);
+
+    // Extract the agent's reply from collected messages
+    if (allMessages.length > 0) {
+      // Find the last assistant/agent message
+      const agentMessages = allMessages.filter(msg => 
+        msg.role === 'assistant' || 
+        msg.role === 'agent' || 
+        msg.type === 'agent' ||
+        (!msg.role && !msg.type) // fallback for messages without explicit role
+      );
+      
+      if (agentMessages.length > 0) {
+        const lastMessage = agentMessages[agentMessages.length - 1];
+        return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
+      } else {
+        // If no specific agent messages, use the last message
+        const lastMessage = allMessages[allMessages.length - 1];
+        return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
+      }
+    } else if (lastValidData && lastValidData.messages && lastValidData.messages.length > 0) {
+      // Fallback to original logic
       const lastMessage = lastValidData.messages[lastValidData.messages.length - 1];
-      return lastMessage.content || "I'm sorry, I couldn't process your request.";
+      return lastMessage.content || lastMessage.text || "I'm sorry, I couldn't process your request.";
     } else {
-      throw new Error('No valid response received from the API');
+      // If we still can't find a valid response, return the raw response for debugging
+      console.error('No valid messages found. Raw response:', responseText);
+      throw new Error(`No valid response received from the API. Raw response: ${responseText.substring(0, 200)}...`);
     }
 
   } catch (error) {
